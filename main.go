@@ -1,0 +1,128 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"log"
+	"net/url"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/pkg/errors"
+
+	"bazil.org/fuse"
+	"bazil.org/fuse/fs"
+)
+
+var conn *fuse.Conn
+var mountDir string
+
+func handleStopsAndCrashes() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+		syscall.SIGABRT,
+		syscall.SIGSEGV)
+	go func() {
+		s := <-sigChan
+		log.Println("Signal received:", s)
+		err := conn.Close()
+		if err != nil {
+			panic(err)
+		}
+		_ = fuse.Unmount(mountDir)
+	}()
+}
+
+func main() {
+	var err error
+
+	mountDir = flag.Arg(0)
+	if len(mountDir) == 0 {
+		usage()
+		return
+	}
+
+	if !dirExists(mountDir) {
+		fmt.Println(fmt.Errorf("%s: not found or not a directory", mountDir))
+		os.Exit(int(syscall.ENOENT))
+	}
+
+	serverBaseUrlP := flag.String("url", "", "Base URL to mount")
+	if serverBaseUrlP == nil || len(*serverBaseUrlP) == 0 {
+		usage()
+		return
+	}
+	serverBaseUrl := *serverBaseUrlP
+
+	URL, err := url.Parse(serverBaseUrl)
+	if err != nil {
+		fmt.Println(errors.Wrap(err, fmt.Sprintf("invalid URL \"%s\"", serverBaseUrl)))
+		os.Exit(int(syscall.EINVAL))
+	}
+
+	root := listingEntry{
+		name:    "",
+		isDir:   true,
+		size:    0,
+		modTime: time.Now(),
+		inode:   1,
+		server: &serverInfo{
+			baseUrl:   URL.String(),
+			lastInode: 1,
+		},
+		parent:    nil,
+		children:  nil,
+		fileCount: 0,
+	}
+
+	handleStopsAndCrashes()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = conn.Close()
+			_ = fuse.Unmount(mountDir)
+			panic(r)
+		}
+	}()
+
+	conn, err = fuse.Mount(
+		mountDir,
+		fuse.FSName("go-httpfs"),
+		fuse.Subtype("httpfs"),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	err = fs.Serve(conn, FS{
+		RootEntry: &Dir{
+			entry: &root,
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_ = root
+	_ = err
+}
+
+func dirExists(path string) bool {
+	stat, err := os.Stat(path)
+	if err == nil {
+		return stat.IsDir()
+	}
+	return false
+}
+
+func usage() {
+	fmt.Printf("Usage: %s <mount point>\n", os.Args[0])
+	flag.PrintDefaults()
+	os.Exit(0)
+}
