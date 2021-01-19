@@ -43,6 +43,9 @@ func main() {
 	var err error
 
 	mountDir = flag.Arg(0)
+	serverBaseUrlP := flag.String("url", "", "Base URL to mount")
+	flag.Parse()
+
 	if len(mountDir) == 0 {
 		usage()
 		return
@@ -53,7 +56,6 @@ func main() {
 		os.Exit(int(syscall.ENOENT))
 	}
 
-	serverBaseUrlP := flag.String("url", "", "Base URL to mount")
 	if serverBaseUrlP == nil || len(*serverBaseUrlP) == 0 {
 		usage()
 		return
