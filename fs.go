@@ -38,33 +38,3 @@ func (l *listingEntry) IsDir() bool {
 func (l *listingEntry) Sys() interface{} {
 	return l
 }
-
-type fsRootNode struct{}
-
-func (f fsRootNode) Name() string {
-	return ""
-}
-
-func (f fsRootNode) Size() int64 {
-	return 0
-}
-
-func (f fsRootNode) Mode() os.FileMode {
-	return os.ModeDir
-}
-
-func (f fsRootNode) ModTime() time.Time {
-	return time.Now()
-}
-
-func (f fsRootNode) IsDir() bool {
-	return true
-}
-
-func (f fsRootNode) Sys() interface{} {
-	return f
-}
-
-var (
-	_ os.FileInfo = (*fsRootNode)(nil)
-)
