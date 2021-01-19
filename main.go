@@ -124,7 +124,7 @@ func dirExists(path string) bool {
 }
 
 func usage() {
-	fmt.Printf("Usage: %s <mount point>\n", os.Args[0])
+	fmt.Printf("Usage: %s [options...] <mount point>\n", os.Args[0])
 	flag.PrintDefaults()
 	os.Exit(0)
 }
