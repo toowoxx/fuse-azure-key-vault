@@ -18,6 +18,7 @@ import (
 
 var conn *fuse.Conn
 var mountDir string
+var isExiting = false
 
 func handleStopsAndCrashes() {
 	sigChan := make(chan os.Signal, 1)
@@ -31,11 +32,33 @@ func handleStopsAndCrashes() {
 	go func() {
 		s := <-sigChan
 		log.Println("Signal received:", s)
-		err := conn.Close()
-		if err != nil {
-			panic(err)
+		if isExiting {
+			log.Println("Force-quitting")
+			os.Exit(1)
 		}
-		_ = fuse.Unmount(mountDir)
+		isExiting = true
+		waitChan := make(chan bool, 1)
+		go func() {
+			log.Println("Closing connection...")
+			err := conn.Close()
+			if err != nil {
+				log.Println("Error while closing connection")
+				log.Fatal(err)
+			}
+			log.Println("Connection closed.")
+			waitChan <- true
+		}()
+		log.Println("Unmounting", mountDir)
+		err := fuse.Unmount(mountDir)
+		_ = <-waitChan
+		if err != nil {
+			log.Println("Error while exiting")
+			log.Fatal(err)
+		} else {
+			log.Println("Exiting.")
+			log.Println()
+			os.Exit(0)
+		}
 	}()
 }
 
