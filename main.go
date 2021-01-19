@@ -42,9 +42,9 @@ func handleStopsAndCrashes() {
 func main() {
 	var err error
 
-	mountDir = flag.Arg(0)
 	serverBaseUrlP := flag.String("url", "", "Base URL to mount")
 	flag.Parse()
+	mountDir = flag.Arg(0)
 
 	if len(mountDir) == 0 {
 		usage()
