@@ -2,6 +2,23 @@
 
 Uses directory listings to build a directory structure and downloads the files using HTTP as you read them.
 
+## Prerequisites
+
+ - FUSE support on your distro and the necessary libs (should be by default on Linux).
+ - Go 1.15+
+
+## Building
+
+```
+go build
+```
+
+## Running after build
+
+```
+./go-httpfs -url "https://....." mountdir
+```
+
 ## License
 
 All source files in this project/repository are licensed under the GPLv3 license.
