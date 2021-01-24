@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -37,7 +38,8 @@ func handleStopsAndCrashes() {
 			os.Exit(1)
 		}
 		isExiting = true
-		waitChan := make(chan bool, 1)
+		var wg sync.WaitGroup
+		wg.Add(1)
 		go func() {
 			log.Println("Closing connection...")
 			err := conn.Close()
@@ -46,11 +48,11 @@ func handleStopsAndCrashes() {
 				log.Fatal(err)
 			}
 			log.Println("Connection closed.")
-			waitChan <- true
+			wg.Done()
 		}()
 		log.Println("Unmounting", mountDir)
 		err := fuse.Unmount(mountDir)
-		_ = <-waitChan
+		wg.Wait()
 		if err != nil {
 			log.Println("Error while exiting")
 			log.Fatal(err)
