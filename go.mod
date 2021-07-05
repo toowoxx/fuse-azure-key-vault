@@ -7,5 +7,5 @@ require (
 	github.com/andybalholm/cascadia v1.2.0
 	github.com/pkg/errors v0.9.1
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 )
