@@ -1,22 +1,22 @@
-# HTTP filesystem (FUSE)
+# Azure Key Vault FUSE File System
 
-Uses directory listings to build a directory structure and downloads the files using HTTP as you read them.
+Displays your azure key vault in a directory structure.
 
 ## Prerequisites
 
  - FUSE support on your distro and the necessary libs (should be by default on Linux).
- - Go 1.15+
+ - Go 1.19+
 
 ## Building
 
 ```
-go build
+go build -o fuse.azkv
 ```
 
 ## Running after build
 
 ```
-./go-httpfs -url "https://....." mountdir
+./fuse.azkv -url "https://....vault.azure.net" mountdir
 ```
 
 ## License
@@ -24,8 +24,9 @@ go build
 All source files in this project/repository are licensed under the GPLv3 license.
 
 ```
-    HTTP FUSE filesystem
+    FUSE filesystem for Az Key Vault
     Copyright (C) 2021  Simão Gomes Viana
+    Copyright (C) 2022  Toowoxx IT GmbH
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
