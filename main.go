@@ -4,14 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -67,7 +64,7 @@ func handleStopsAndCrashes() {
 func main() {
 	var err error
 
-	serverBaseUrlP := flag.String("url", "", "Base URL to mount")
+	// serverBaseUrlP := flag.String("url", "", "Base URL to mount")
 	flag.Parse()
 	mountDir = flag.Arg(0)
 
@@ -81,28 +78,12 @@ func main() {
 		os.Exit(int(syscall.ENOENT))
 	}
 
-	if serverBaseUrlP == nil || len(*serverBaseUrlP) == 0 {
-		usage()
-		return
-	}
-	serverBaseUrl := *serverBaseUrlP
-
-	URL, err := url.Parse(serverBaseUrl)
-	if err != nil {
-		fmt.Println(errors.Wrap(err, fmt.Sprintf("invalid URL \"%s\"", serverBaseUrl)))
-		os.Exit(int(syscall.EINVAL))
-	}
-
 	root := listingEntry{
-		name:    "",
-		isDir:   true,
-		size:    0,
-		modTime: time.Now(),
-		inode:   1,
-		server: &serverInfo{
-			baseUrl:   URL.String(),
-			lastInode: 1,
-		},
+		name:      "",
+		isDir:     true,
+		size:      0,
+		modTime:   time.Now(),
+		inode:     1,
 		parent:    nil,
 		children:  nil,
 		fileCount: 0,
@@ -119,8 +100,9 @@ func main() {
 
 	conn, err = fuse.Mount(
 		mountDir,
-		fuse.FSName("go-httpfs"),
-		fuse.Subtype("httpfs"),
+		fuse.FSName("azure-key-vault"),
+		fuse.Subtype("azkv"),
+		fuse.AllowNonEmptyMount(),
 	)
 	if err != nil {
 		log.Fatal(err)

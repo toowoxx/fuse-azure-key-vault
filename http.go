@@ -10,7 +10,7 @@ var transport = &http.Transport{
 	ReadBufferSize:  32 * 1024,
 	IdleConnTimeout: time.Minute * 1,
 	TLSClientConfig: &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: false,
 	},
 }
 
