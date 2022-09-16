@@ -9,13 +9,6 @@ func (entry *listingEntry) Name() string {
 	return entry.name
 }
 
-func (entry *listingEntry) Size() int64 {
-	if entry.IsDir() {
-		return int64(entry.fileCount)
-	}
-	return entry.size
-}
-
 func (entry *listingEntry) Mode() os.FileMode {
 	// read only by default
 	bits := os.FileMode(0444)

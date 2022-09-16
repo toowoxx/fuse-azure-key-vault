@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"sync/atomic"
 	"time"
@@ -23,15 +24,14 @@ const (
 )
 
 type listingEntry struct {
-	name    string
-	size    int64
-	modTime time.Time
-	inode   uint64
+	name     string
+	azKvName string
+	modTime  time.Time
+	inode    uint64
 
 	vaultClients *AzKVClients
 	parent       *listingEntry
 	children     []*listingEntry
-	fileCount    int
 	root         *listingEntry
 	isRoot       bool
 	entryType    entryType
@@ -41,6 +41,9 @@ type listingEntry struct {
 	fs.Node
 
 	nextInode *atomic.Uint64
+
+	filter     func(typ string, data []byte) []byte
+	filterType string
 }
 
 var (
@@ -64,6 +67,7 @@ func (entry *listingEntry) isKeysDir() bool {
 }
 
 func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
+	log.Println("Retrieving directory listing for", entry.name, "inode", entry.inode)
 	if entry.isRoot {
 		if len(entry.children) > 0 {
 			return nil
@@ -116,7 +120,6 @@ func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
 func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) error {
 	pager := entry.vaultClients.keys.NewListKeysPager(nil)
 	entry.children = nil
-	entry.fileCount = 0
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -130,20 +133,34 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 			} else if key.Attributes.Created != nil {
 				modTime = *key.Attributes.Created
 			}
-			entry.children = append(entry.children, &listingEntry{
-				name:         key.KID.Name(),
-				size:         0,
-				modTime:      modTime,
-				inode:        entry.advanceInode(),
-				vaultClients: entry.vaultClients,
-				parent:       entry,
-				children:     nil,
-				fileCount:    0,
-				fetchTime:    &now,
-				root:         entry.root,
-				entryType:    keyEntryType,
-			})
-			entry.fileCount++
+			entry.children = append(entry.children,
+				&listingEntry{
+					name:         key.KID.Name(),
+					azKvName:     key.KID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    &now,
+					root:         entry.root,
+					entryType:    keyEntryType,
+				},
+				&listingEntry{
+					name:         key.KID.Name() + ".pem",
+					azKvName:     key.KID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    &now,
+					root:         entry.root,
+					entryType:    keyEntryType,
+					filter:       ConvertEntry,
+					filterType:   pemType,
+				},
+			)
 		}
 	}
 	return nil
@@ -152,7 +169,6 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Context) error {
 	pager := entry.vaultClients.certificates.NewListCertificatesPager(nil)
 	entry.children = nil
-	entry.fileCount = 0
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -166,20 +182,34 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 			} else if certificate.Attributes.Created != nil {
 				modTime = *certificate.Attributes.Created
 			}
-			entry.children = append(entry.children, &listingEntry{
-				name:         certificate.ID.Name(),
-				size:         0,
-				modTime:      modTime,
-				inode:        entry.advanceInode(),
-				vaultClients: entry.vaultClients,
-				parent:       entry,
-				children:     nil,
-				fileCount:    0,
-				fetchTime:    &now,
-				root:         entry.root,
-				entryType:    certificateEntryType,
-			})
-			entry.fileCount++
+			entry.children = append(entry.children,
+				&listingEntry{
+					name:         certificate.ID.Name(),
+					azKvName:     certificate.ID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    &now,
+					root:         entry.root,
+					entryType:    certificateEntryType,
+				},
+				&listingEntry{
+					name:         certificate.ID.Name() + ".pem",
+					azKvName:     certificate.ID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    &now,
+					root:         entry.root,
+					entryType:    certificateEntryType,
+					filter:       ConvertEntry,
+					filterType:   pemType,
+				},
+			)
 		}
 	}
 	return nil
@@ -188,7 +218,6 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 func (entry *listingEntry) retrieveSecretsDirectoryListing(ctx context.Context) error {
 	pager := entry.vaultClients.secrets.NewListSecretsPager(nil)
 	entry.children = nil
-	entry.fileCount = 0
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -202,20 +231,20 @@ func (entry *listingEntry) retrieveSecretsDirectoryListing(ctx context.Context) 
 			} else if secret.Attributes.Created != nil {
 				modTime = *secret.Attributes.Created
 			}
-			entry.children = append(entry.children, &listingEntry{
-				name:         secret.ID.Name(),
-				size:         0,
-				modTime:      modTime,
-				inode:        entry.advanceInode(),
-				vaultClients: entry.vaultClients,
-				parent:       entry,
-				children:     nil,
-				fileCount:    0,
-				fetchTime:    &now,
-				root:         entry.root,
-				entryType:    secretEntryType,
-			})
-			entry.fileCount++
+			entry.children = append(entry.children,
+				&listingEntry{
+					name:         secret.ID.Name(),
+					azKvName:     secret.ID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    &now,
+					root:         entry.root,
+					entryType:    secretEntryType,
+				},
+			)
 		}
 	}
 	return nil
@@ -226,6 +255,7 @@ func (entry *listingEntry) advanceInode() uint64 {
 }
 
 func (entry *listingEntry) Find(name string) *listingEntry {
+	log.Println("Find", name, "in", entry.name, "inode", entry.inode)
 	for _, child := range entry.children {
 		if child.name == name {
 			return child
@@ -235,28 +265,78 @@ func (entry *listingEntry) Find(name string) *listingEntry {
 }
 
 func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
+	log.Println("Download file", entry.name, "inode", entry.inode)
 	var result []byte = nil
 	switch entry.entryType {
 	case certificateEntryType:
-		certificateResponse, err := entry.vaultClients.certificates.GetCertificate(ctx, entry.name, "", nil)
+		certificateResponse, err :=
+			entry.vaultClients.certificates.GetCertificate(ctx, entry.azKvName, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get certificate")
 		}
 		result = certificateResponse.CER
 	case keyEntryType:
-		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.name, "", nil)
+		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get key")
 		}
 		result = keyResponse.Key.K
 	case secretEntryType:
-		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.name, "", nil)
+		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.azKvName, "", nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get secret")
 		}
 		result = []byte(*secretResponse.Value)
 	}
 
-	entry.size = int64(len(result))
+	if entry.filter != nil {
+		return entry.filter(entry.filterType, result), nil
+	}
+
 	return result, nil
+}
+
+func (entry *listingEntry) Size() int64 {
+	log.Println("Determining size of", entry.name, "inode", entry.inode)
+	if entry.IsDir() {
+		return int64(len(entry.children))
+	}
+	ctx := context.Background()
+
+	switch entry.entryType {
+	case certificateEntryType:
+		certificateResponse, err :=
+			entry.vaultClients.certificates.GetCertificate(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return -1
+		}
+
+		if entry.filter != nil {
+			return int64(len(entry.filter(entry.filterType, certificateResponse.CER)))
+		} else {
+			return int64(len(certificateResponse.CER))
+		}
+	case keyEntryType:
+		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return -1
+		}
+		if entry.filter != nil {
+			return int64(len(entry.filter(entry.filterType, keyResponse.Key.K)))
+		} else {
+			return int64(len(keyResponse.Key.K))
+		}
+	case secretEntryType:
+		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return -1
+		}
+		if entry.filter != nil {
+			return int64(len(entry.filter(entry.filterType, []byte(*secretResponse.Value))))
+		} else {
+			return int64(len([]byte(*secretResponse.Value)))
+		}
+	default:
+		return -1
+	}
 }

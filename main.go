@@ -97,18 +97,17 @@ func main() {
 	azKvClient := ConnectToKeyVault(URL.String())
 
 	root := listingEntry{
-		name:         "",
-		size:         0,
+		name:         "root",
 		modTime:      time.Now(),
 		inode:        1,
 		parent:       nil,
 		children:     nil,
 		isRoot:       true,
-		fileCount:    0,
 		vaultClients: azKvClient,
 		nextInode:    &atomic.Uint64{},
 	}
 	root.root = &root
+	root.nextInode.Add(root.inode)
 
 	handleStopsAndCrashes()
 	defer func() {
