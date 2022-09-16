@@ -5,21 +5,21 @@ import (
 	"time"
 )
 
-func (l *listingEntry) Name() string {
-	return l.name
+func (entry *listingEntry) Name() string {
+	return entry.name
 }
 
-func (l *listingEntry) Size() int64 {
-	if l.isDir {
-		return int64(l.fileCount)
+func (entry *listingEntry) Size() int64 {
+	if entry.IsDir() {
+		return int64(entry.fileCount)
 	}
-	return l.size
+	return entry.size
 }
 
-func (l *listingEntry) Mode() os.FileMode {
+func (entry *listingEntry) Mode() os.FileMode {
 	// read only by default
 	bits := os.FileMode(0444)
-	if l.isDir {
+	if entry.IsDir() {
 		bits |= os.ModeDir
 		// Add execute bits for cd
 		bits |= 0111
@@ -27,14 +27,10 @@ func (l *listingEntry) Mode() os.FileMode {
 	return bits
 }
 
-func (l *listingEntry) ModTime() time.Time {
-	return l.modTime
+func (entry *listingEntry) ModTime() time.Time {
+	return entry.modTime
 }
 
-func (l *listingEntry) IsDir() bool {
-	return l.isDir
-}
-
-func (l *listingEntry) Sys() interface{} {
-	return l
+func (entry *listingEntry) Sys() interface{} {
+	return entry
 }

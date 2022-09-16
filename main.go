@@ -4,11 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -64,7 +68,7 @@ func handleStopsAndCrashes() {
 func main() {
 	var err error
 
-	// serverBaseUrlP := flag.String("url", "", "Base URL to mount")
+	keyVaultURLParam := flag.String("url", "", "URL of Azure Key Vault")
 	flag.Parse()
 	mountDir = flag.Arg(0)
 
@@ -78,16 +82,33 @@ func main() {
 		os.Exit(int(syscall.ENOENT))
 	}
 
-	root := listingEntry{
-		name:      "",
-		isDir:     true,
-		size:      0,
-		modTime:   time.Now(),
-		inode:     1,
-		parent:    nil,
-		children:  nil,
-		fileCount: 0,
+	if keyVaultURLParam == nil || len(*keyVaultURLParam) == 0 {
+		usage()
+		return
 	}
+	keyVaultURL := *keyVaultURLParam
+
+	URL, err := url.Parse(keyVaultURL)
+	if err != nil {
+		fmt.Println(errors.Wrap(err, fmt.Sprintf("invalid URL \"%s\"", keyVaultURL)))
+		os.Exit(int(syscall.EINVAL))
+	}
+
+	azKvClient := ConnectToKeyVault(URL.String())
+
+	root := listingEntry{
+		name:         "",
+		size:         0,
+		modTime:      time.Now(),
+		inode:        1,
+		parent:       nil,
+		children:     nil,
+		isRoot:       true,
+		fileCount:    0,
+		vaultClients: azKvClient,
+		nextInode:    &atomic.Uint64{},
+	}
+	root.root = &root
 
 	handleStopsAndCrashes()
 	defer func() {

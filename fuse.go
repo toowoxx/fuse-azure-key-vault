@@ -8,20 +8,20 @@ import (
 	"bazil.org/fuse/fs"
 )
 
-func (l *listingEntry) fuseDirEntType() fuse.DirentType {
+func (entry *listingEntry) fuseDirEntType() fuse.DirentType {
 	switch {
-	case l.isDir:
+	case entry.IsDir():
 		return fuse.DT_Dir
 	default:
 		return fuse.DT_Dir
 	}
 }
 
-func (l *listingEntry) toDirEnt() fuse.Dirent {
+func (entry *listingEntry) toDirEnt() fuse.Dirent {
 	return fuse.Dirent{
-		Inode: l.inode,
-		Type:  l.fuseDirEntType(),
-		Name:  l.name,
+		Inode: entry.inode,
+		Type:  entry.fuseDirEntType(),
+		Name:  entry.name,
 	}
 }
 
@@ -47,15 +47,15 @@ func (d Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (d Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	// entry := d.entry.Find(name)
-	// if entry != nil {
-	return nil, syscall.ENOENT
-	// }
-	/*if entry.isDir {
+	entry := d.entry.Find(name)
+	if entry != nil {
+		return nil, syscall.ENOENT
+	}
+	if entry.IsDir() {
 		return Dir{entry}, nil
 	} else {
 		return File{entry}, nil
-	}*/
+	}
 }
 
 func (d Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
@@ -64,10 +64,10 @@ func (d Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		{0, fuse.DT_Dir, ".."},
 	}
 
-	/*err := d.entry.retrieveDirectoryListing()
+	err := d.entry.retrieveDirectoryListing(ctx)
 	if err != nil {
 		return nil, err
-	}*/
+	}
 
 	for _, child := range d.entry.children {
 		dirs = append(dirs, child.toDirEnt())
@@ -89,6 +89,5 @@ func (f File) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (f File) ReadAll(ctx context.Context) ([]byte, error) {
-	// return f.entry.Download()
-	return []byte("TODO"), nil
+	return f.entry.Download(ctx)
 }
