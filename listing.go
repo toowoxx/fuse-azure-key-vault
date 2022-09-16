@@ -98,6 +98,7 @@ func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
 					fetchTime:    &now,
 				},
 			}
+			return nil
 		}
 	}
 	switch {
