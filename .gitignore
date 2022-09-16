@@ -91,3 +91,4 @@ fabric.properties
 
 /tmp/**
 /fuse.azkv
+/dist
