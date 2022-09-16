@@ -1,4 +1,4 @@
-module gitlab.com/xdevs23/go-httpfs
+module github.com/toowoxx/fuse-azure-key-vault
 
 go 1.17
 
