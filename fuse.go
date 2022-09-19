@@ -47,7 +47,7 @@ func (d Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (d Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	entry := d.entry.Find(name)
+	entry := d.entry.Find(name, ctx)
 	if entry == nil {
 		return nil, syscall.ENOENT
 	}

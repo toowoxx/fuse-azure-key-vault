@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const cooldownTime = 5 * time.Second
+
 const certificatesDirName = "certificates"
 const keysDirName = "keys"
 const secretsDirName = "secrets"
@@ -67,6 +69,9 @@ func (entry *listingEntry) isKeysDir() bool {
 }
 
 func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
+	if entry.fetchTime != nil && time.Now().Before(entry.fetchTime.Add(cooldownTime)) {
+		return nil
+	}
 	log.Println("Retrieving directory listing for", entry.name, "inode", entry.inode)
 	if entry.isRoot {
 		if len(entry.children) > 0 {
@@ -81,7 +86,7 @@ func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					root:         entry.root,
-					fetchTime:    &now,
+					fetchTime:    nil,
 				},
 				{
 					name:         keysDirName,
@@ -90,7 +95,7 @@ func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					root:         entry.root,
-					fetchTime:    &now,
+					fetchTime:    nil,
 				},
 				{
 					name:         secretsDirName,
@@ -99,7 +104,7 @@ func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					root:         entry.root,
-					fetchTime:    &now,
+					fetchTime:    nil,
 				},
 			}
 			return nil
@@ -125,7 +130,6 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 		if err != nil {
 			return errors.Wrap(err, "could not get next page for secrets")
 		}
-		now := time.Now()
 		for _, key := range page.Value {
 			modTime := time.UnixMilli(0)
 			if key.Attributes.Updated != nil {
@@ -142,7 +146,7 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					children:     nil,
-					fetchTime:    &now,
+					fetchTime:    nil,
 					root:         entry.root,
 					entryType:    keyEntryType,
 				},
@@ -154,7 +158,7 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					children:     nil,
-					fetchTime:    &now,
+					fetchTime:    nil,
 					root:         entry.root,
 					entryType:    keyEntryType,
 					filter:       ConvertEntry,
@@ -163,6 +167,8 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 			)
 		}
 	}
+	now := time.Now()
+	entry.fetchTime = &now
 	return nil
 }
 
@@ -174,7 +180,6 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 		if err != nil {
 			return errors.Wrap(err, "could not get next page for secrets")
 		}
-		now := time.Now()
 		for _, certificate := range page.Value {
 			modTime := time.UnixMilli(0)
 			if certificate.Attributes.Updated != nil {
@@ -191,7 +196,7 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					children:     nil,
-					fetchTime:    &now,
+					fetchTime:    nil,
 					root:         entry.root,
 					entryType:    certificateEntryType,
 				},
@@ -203,7 +208,7 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					children:     nil,
-					fetchTime:    &now,
+					fetchTime:    nil,
 					root:         entry.root,
 					entryType:    certificateEntryType,
 					filter:       ConvertEntry,
@@ -212,6 +217,8 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 			)
 		}
 	}
+	now := time.Now()
+	entry.fetchTime = &now
 	return nil
 }
 
@@ -223,7 +230,6 @@ func (entry *listingEntry) retrieveSecretsDirectoryListing(ctx context.Context) 
 		if err != nil {
 			return errors.Wrap(err, "could not get next page for secrets")
 		}
-		now := time.Now()
 		for _, secret := range page.Value {
 			modTime := time.UnixMilli(0)
 			if secret.Attributes.Updated != nil {
@@ -240,13 +246,15 @@ func (entry *listingEntry) retrieveSecretsDirectoryListing(ctx context.Context) 
 					vaultClients: entry.vaultClients,
 					parent:       entry,
 					children:     nil,
-					fetchTime:    &now,
+					fetchTime:    nil,
 					root:         entry.root,
 					entryType:    secretEntryType,
 				},
 			)
 		}
 	}
+	now := time.Now()
+	entry.fetchTime = &now
 	return nil
 }
 
@@ -254,8 +262,14 @@ func (entry *listingEntry) advanceInode() uint64 {
 	return entry.root.nextInode.Add(1)
 }
 
-func (entry *listingEntry) Find(name string) *listingEntry {
+func (entry *listingEntry) Find(name string, ctx context.Context) *listingEntry {
 	log.Println("Find", name, "in", entry.name, "inode", entry.inode)
+	if entry.fetchTime == nil {
+		err := entry.retrieveDirectoryListing(ctx)
+		if err != nil {
+			return nil
+		}
+	}
 	for _, child := range entry.children {
 		if child.name == name {
 			return child
@@ -292,6 +306,9 @@ func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 	if entry.filter != nil {
 		return entry.filter(entry.filterType, result), nil
 	}
+
+	now := time.Now()
+	entry.fetchTime = &now
 
 	return result, nil
 }
