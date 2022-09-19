@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="go build github.com/toowoxx/fuse-azure-key-vault" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
-    <module name="http-fuse" />
+    <module name="fuse-azure-key-vault" />
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="tmp" />
     <kind value="PACKAGE" />
