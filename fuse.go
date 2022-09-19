@@ -25,7 +25,6 @@ func (entry *listingEntry) toDirEnt() fuse.Dirent {
 	}
 }
 
-// FS implements the hello world file system.
 type FS struct {
 	RootEntry *Dir
 }
@@ -34,7 +33,6 @@ func (fs FS) Root() (fs.Node, error) {
 	return *fs.RootEntry, nil
 }
 
-// Dir implements both Node and Handle for the root directory.
 type Dir struct {
 	entry *listingEntry
 }
@@ -76,7 +74,6 @@ func (d Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	return dirs, nil
 }
 
-// File implements both Node and Handle for the hello file.
 type File struct {
 	entry *listingEntry
 }
