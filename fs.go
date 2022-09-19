@@ -11,11 +11,11 @@ func (entry *listingEntry) Name() string {
 
 func (entry *listingEntry) Mode() os.FileMode {
 	// read only by default
-	bits := os.FileMode(0444)
+	bits := os.FileMode(0440)
 	if entry.IsDir() {
 		bits |= os.ModeDir
 		// Add execute bits for cd
-		bits |= 0111
+		bits |= 0110
 	}
 	return bits
 }
