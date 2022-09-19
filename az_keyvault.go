@@ -11,6 +11,8 @@ import (
 )
 
 const pemType = "pem"
+const pemPrivKeyType = "pemPrivKey"
+const pemCertType = "pemCert"
 
 type AzKVClients struct {
 	secrets      *azsecrets.Client
@@ -33,9 +35,14 @@ func ConnectToKeyVault(url string) *AzKVClients {
 
 func ConvertEntry(typ string, data []byte) []byte {
 	switch typ {
-	case pemType:
+	case pemCertType:
 		return pem.EncodeToMemory(&pem.Block{
 			Type:  "CERTIFICATE",
+			Bytes: data,
+		})
+	case pemPrivKeyType:
+		return pem.EncodeToMemory(&pem.Block{
+			Type:  "PRIVATE KEY",
 			Bytes: data,
 		})
 	default:

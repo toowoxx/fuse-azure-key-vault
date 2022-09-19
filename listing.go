@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
+	"encoding/pem"
+	"io"
 	"log"
 	"os"
 	"sync/atomic"
@@ -46,6 +50,8 @@ type listingEntry struct {
 
 	filter     func(typ string, data []byte) []byte
 	filterType string
+
+	isCertChain bool
 }
 
 var (
@@ -162,7 +168,7 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 					root:         entry.root,
 					entryType:    keyEntryType,
 					filter:       ConvertEntry,
-					filterType:   pemType,
+					filterType:   pemPrivKeyType,
 				},
 			)
 		}
@@ -212,7 +218,20 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 					root:         entry.root,
 					entryType:    certificateEntryType,
 					filter:       ConvertEntry,
-					filterType:   pemType,
+					filterType:   pemCertType,
+				},
+				&listingEntry{
+					name:         certificate.ID.Name() + ".chain.pem",
+					azKvName:     certificate.ID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    nil,
+					root:         entry.root,
+					entryType:    certificateEntryType,
+					isCertChain:  true,
 				},
 			)
 		}
@@ -278,6 +297,58 @@ func (entry *listingEntry) Find(name string, ctx context.Context) *listingEntry 
 	return nil
 }
 
+func encodeCertificate(der []byte) []byte {
+	return pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: der,
+	})
+}
+
+func buildCertificateChain(der []byte) ([][]byte, error) {
+	var chain [][]byte
+	cert, _ := x509.ParseCertificate(der)
+	if cert != nil {
+		chain = append(chain, encodeCertificate(der))
+		for _, url := range cert.IssuingCertificateURL {
+			log.Println("Found intermediate, downloading:", url)
+			resp, err := httpClient.Get(url)
+			if err != nil {
+				return nil, err
+			}
+			intermediateCertBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			_ = resp.Body.Close()
+
+			cert, _ := x509.ParseCertificate(der)
+			if cert != nil {
+				if len(cert.IssuingCertificateURL) != 0 {
+					parentChain, err := buildCertificateChain(intermediateCertBytes)
+					if err != nil {
+						return nil, err
+					}
+					chain = append(chain, parentChain...)
+				}
+			}
+		}
+	}
+	return chain, nil
+}
+
+func (entry *listingEntry) certChain(data []byte) ([]byte, error) {
+	chain, err := buildCertificateChain(data)
+	if err != nil {
+		return nil, err
+	}
+	var chainBytes bytes.Buffer
+	// All except root certificate
+	for _, pemCert := range chain[:len(chain)-1] {
+		chainBytes.Write(pemCert)
+	}
+	return chainBytes.Bytes(), nil
+}
+
 func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 	log.Println("Download file", entry.name, "inode", entry.inode)
 	var result []byte = nil
@@ -289,6 +360,12 @@ func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 			return nil, errors.Wrap(err, "could not get certificate")
 		}
 		result = certificateResponse.CER
+		if entry.isCertChain {
+			result, err = entry.certChain(result)
+			if err != nil {
+				return nil, err
+			}
+		}
 	case keyEntryType:
 		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)
 		if err != nil {
@@ -303,12 +380,12 @@ func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 		result = []byte(*secretResponse.Value)
 	}
 
+	now := time.Now()
+	entry.fetchTime = &now
+
 	if entry.filter != nil {
 		return entry.filter(entry.filterType, result), nil
 	}
-
-	now := time.Now()
-	entry.fetchTime = &now
 
 	return result, nil
 }
@@ -328,10 +405,19 @@ func (entry *listingEntry) Size() int64 {
 			return -1
 		}
 
+		result := certificateResponse.CER
+
+		if entry.isCertChain {
+			result, err = entry.certChain(result)
+			if err != nil {
+				return -1
+			}
+		}
+
 		if entry.filter != nil {
-			return int64(len(entry.filter(entry.filterType, certificateResponse.CER)))
+			return int64(len(entry.filter(entry.filterType, result)))
 		} else {
-			return int64(len(certificateResponse.CER))
+			return int64(len(result))
 		}
 	case keyEntryType:
 		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)

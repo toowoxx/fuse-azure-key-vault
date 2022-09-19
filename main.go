@@ -118,6 +118,7 @@ func main() {
 		}
 	}()
 
+	log.Println("Mounting", keyVaultURL, "on", mountDir)
 	conn, err = fuse.Mount(
 		mountDir,
 		fuse.FSName("azure-key-vault"),
