@@ -26,10 +26,25 @@ func ConnectToKeyVault(url string) *AzKVClients {
 		log.Fatalf("failed to obtain a credential: %v", err)
 	}
 
+	secretClient, err := azsecrets.NewClient(url, cred, nil)
+	if err != nil {
+		log.Fatalf("failed to create a secret client: %v", err)
+	}
+
+	keyClient, err := azkeys.NewClient(url, cred, nil)
+	if err != nil {
+		log.Fatalf("failed to create a key client: %v", err)
+	}
+
+	certClient, err := azcertificates.NewClient(url, cred, nil)
+	if err != nil {
+		log.Fatalf("failed to create a certificate client: %v", err)
+	}
+
 	return &AzKVClients{
-		secrets:      azsecrets.NewClient(url, cred, nil),
-		keys:         azkeys.NewClient(url, cred, nil),
-		certificates: azcertificates.NewClient(url, cred, nil),
+		secrets:      secretClient,
+		keys:         keyClient,
+		certificates: certClient,
 	}
 }
 
