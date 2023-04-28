@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"io"
 	"log"
@@ -27,6 +28,7 @@ const (
 	certificateEntryType entryType = iota + 1
 	keyEntryType
 	secretEntryType
+	keyResponseEntryType
 )
 
 type listingEntry struct {
@@ -169,6 +171,20 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 					entryType:    keyEntryType,
 					filter:       ConvertEntry,
 					filterType:   pemPrivKeyType,
+				},
+				&listingEntry{
+					name:         key.KID.Name() + ".response",
+					azKvName:     key.KID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    nil,
+					root:         entry.root,
+					entryType:    keyResponseEntryType,
+					filter:       nil,
+					filterType:   keyResponseType,
 				},
 			)
 		}
@@ -372,6 +388,16 @@ func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 			return nil, errors.Wrap(err, "could not get key")
 		}
 		result = keyResponse.Key.K
+	case keyResponseEntryType:
+		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get key")
+		}
+		// Marshal keyResponse.Key
+		result, err = json.Marshal(keyResponse.Key)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not marshal key")
+		}
 	case secretEntryType:
 		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.azKvName, "", nil)
 		if err != nil {
@@ -428,6 +454,21 @@ func (entry *listingEntry) Size() int64 {
 			return int64(len(entry.filter(entry.filterType, keyResponse.Key.K)))
 		} else {
 			return int64(len(keyResponse.Key.K))
+		}
+	case keyResponseEntryType:
+		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return -1
+		}
+		// Marshal keyResponse.Key
+		result, err := json.Marshal(keyResponse.Key)
+		if err != nil {
+			return -1
+		}
+		if entry.filter != nil {
+			return int64(len(entry.filter(entry.filterType, result)))
+		} else {
+			return int64(len(result))
 		}
 	case secretEntryType:
 		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.azKvName, "", nil)
