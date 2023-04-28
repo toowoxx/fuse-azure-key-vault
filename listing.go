@@ -310,6 +310,26 @@ func (entry *listingEntry) retrieveSecretsDirectoryListing(ctx context.Context) 
 					entryType:    secretResponseEntryType,
 				},
 			)
+
+			if secret.ContentType != nil && *secret.ContentType == "application/x-pkcs12" {
+				// Provide the base64-decoded value as .pfx file
+				entry.children = append(entry.children,
+					&listingEntry{
+						name:         secret.ID.Name() + ".pfx",
+						azKvName:     secret.ID.Name(),
+						modTime:      modTime,
+						inode:        entry.advanceInode(),
+						vaultClients: entry.vaultClients,
+						parent:       entry,
+						children:     nil,
+						fetchTime:    nil,
+						root:         entry.root,
+						entryType:    secretEntryType,
+						filter:       ConvertEntry,
+						filterType:   base64PfxType,
+					},
+				)
+			}
 		}
 	}
 	now := time.Now()

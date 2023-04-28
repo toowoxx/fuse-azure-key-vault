@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/pem"
 	"log"
 
@@ -10,9 +11,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets"
 )
 
-const pemType = "pem"
 const pemPrivKeyType = "pemPrivKey"
 const pemCertType = "pemCert"
+const base64PfxType = "base64Pfx"
 
 type AzKVClients struct {
 	secrets      *azsecrets.Client
@@ -60,6 +61,13 @@ func ConvertEntry(typ string, data []byte) []byte {
 			Type:  "PRIVATE KEY",
 			Bytes: data,
 		})
+	case base64PfxType:
+		// Decode the base64 data
+		decoded, err := base64.StdEncoding.DecodeString(string(data))
+		if err != nil {
+			return []byte("Error decoding base64 data")
+		}
+		return decoded
 	default:
 		return data
 	}
