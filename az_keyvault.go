@@ -13,7 +13,6 @@ import (
 const pemType = "pem"
 const pemPrivKeyType = "pemPrivKey"
 const pemCertType = "pemCert"
-const keyResponseType = "keyResponse"
 
 type AzKVClients struct {
 	secrets      *azsecrets.Client

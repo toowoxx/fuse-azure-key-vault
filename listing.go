@@ -29,6 +29,8 @@ const (
 	keyEntryType
 	secretEntryType
 	keyResponseEntryType
+	certificateResponseEntryType
+	secretResponseEntryType
 )
 
 type listingEntry struct {
@@ -183,8 +185,6 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 					fetchTime:    nil,
 					root:         entry.root,
 					entryType:    keyResponseEntryType,
-					filter:       nil,
-					filterType:   keyResponseType,
 				},
 			)
 		}
@@ -249,6 +249,18 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 					entryType:    certificateEntryType,
 					isCertChain:  true,
 				},
+				&listingEntry{
+					name:         certificate.ID.Name() + ".response",
+					azKvName:     certificate.ID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    nil,
+					root:         entry.root,
+					entryType:    certificateResponseEntryType,
+				},
 			)
 		}
 	}
@@ -284,6 +296,18 @@ func (entry *listingEntry) retrieveSecretsDirectoryListing(ctx context.Context) 
 					fetchTime:    nil,
 					root:         entry.root,
 					entryType:    secretEntryType,
+				},
+				&listingEntry{
+					name:         secret.ID.Name() + ".response",
+					azKvName:     secret.ID.Name(),
+					modTime:      modTime,
+					inode:        entry.advanceInode(),
+					vaultClients: entry.vaultClients,
+					parent:       entry,
+					children:     nil,
+					fetchTime:    nil,
+					root:         entry.root,
+					entryType:    secretResponseEntryType,
 				},
 			)
 		}
@@ -382,6 +406,17 @@ func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 				return nil, err
 			}
 		}
+	case certificateResponseEntryType:
+		certificateResponse, err :=
+			entry.vaultClients.certificates.GetCertificate(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get certificate")
+		}
+		// Marshal certificateResponse
+		result, err = json.Marshal(certificateResponse)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not marshal certificate response")
+		}
 	case keyEntryType:
 		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)
 		if err != nil {
@@ -393,10 +428,10 @@ func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get key")
 		}
-		// Marshal keyResponse.Key
-		result, err = json.Marshal(keyResponse.Key)
+		// Marshal keyResponse
+		result, err = json.Marshal(keyResponse)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not marshal key")
+			return nil, errors.Wrap(err, "could not marshal key response")
 		}
 	case secretEntryType:
 		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.azKvName, "", nil)
@@ -404,6 +439,16 @@ func (entry *listingEntry) Download(ctx context.Context) ([]byte, error) {
 			return nil, errors.Wrap(err, "could not get secret")
 		}
 		result = []byte(*secretResponse.Value)
+	case secretResponseEntryType:
+		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get secret")
+		}
+		// Marshal secretResponse
+		result, err = json.Marshal(secretResponse)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not marshal secret response")
+		}
 	}
 
 	now := time.Now()
@@ -445,6 +490,24 @@ func (entry *listingEntry) Size() int64 {
 		} else {
 			return int64(len(result))
 		}
+	case certificateResponseEntryType:
+		certificateResponse, err :=
+			entry.vaultClients.certificates.GetCertificate(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return -1
+		}
+
+		// Marshal certificateResponse
+		result, err := json.Marshal(certificateResponse)
+		if err != nil {
+			return -1
+		}
+
+		if entry.filter != nil {
+			return int64(len(entry.filter(entry.filterType, result)))
+		} else {
+			return int64(len(result))
+		}
 	case keyEntryType:
 		keyResponse, err := entry.vaultClients.keys.GetKey(ctx, entry.azKvName, "", nil)
 		if err != nil {
@@ -460,8 +523,8 @@ func (entry *listingEntry) Size() int64 {
 		if err != nil {
 			return -1
 		}
-		// Marshal keyResponse.Key
-		result, err := json.Marshal(keyResponse.Key)
+		// Marshal keyResponse
+		result, err := json.Marshal(keyResponse)
 		if err != nil {
 			return -1
 		}
@@ -479,6 +542,21 @@ func (entry *listingEntry) Size() int64 {
 			return int64(len(entry.filter(entry.filterType, []byte(*secretResponse.Value))))
 		} else {
 			return int64(len([]byte(*secretResponse.Value)))
+		}
+	case secretResponseEntryType:
+		secretResponse, err := entry.vaultClients.secrets.GetSecret(ctx, entry.azKvName, "", nil)
+		if err != nil {
+			return -1
+		}
+		// Marshal secretResponse
+		result, err := json.Marshal(secretResponse)
+		if err != nil {
+			return -1
+		}
+		if entry.filter != nil {
+			return int64(len(entry.filter(entry.filterType, result)))
+		} else {
+			return int64(len(result))
 		}
 	default:
 		return -1
