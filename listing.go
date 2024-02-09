@@ -133,7 +133,7 @@ func (entry *listingEntry) retrieveDirectoryListing(ctx context.Context) error {
 }
 
 func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) error {
-	pager := entry.vaultClients.keys.NewListKeysPager(nil)
+	pager := entry.vaultClients.keys.NewListKeyPropertiesPager(nil)
 	entry.children = nil
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -195,7 +195,7 @@ func (entry *listingEntry) retrieveKeysDirectoryListing(ctx context.Context) err
 }
 
 func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Context) error {
-	pager := entry.vaultClients.certificates.NewListCertificatesPager(nil)
+	pager := entry.vaultClients.certificates.NewListCertificatePropertiesPager(nil)
 	entry.children = nil
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -270,7 +270,7 @@ func (entry *listingEntry) retrieveCertificatesDirectoryListing(ctx context.Cont
 }
 
 func (entry *listingEntry) retrieveSecretsDirectoryListing(ctx context.Context) error {
-	pager := entry.vaultClients.secrets.NewListSecretsPager(nil)
+	pager := entry.vaultClients.secrets.NewListSecretPropertiesPager(nil)
 	entry.children = nil
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
