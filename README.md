@@ -1,6 +1,4 @@
 # Azure Key Vault FUSE File System
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftoowoxx%2Ffuse-azure-key-vault.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftoowoxx%2Ffuse-azure-key-vault?ref=badge_shield)
-
 
 Displays your azure key vault in a directory structure.
 
@@ -44,6 +42,3 @@ All source files in this project/repository are licensed under the GPLv3 license
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ```
 
-
-
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftoowoxx%2Ffuse-azure-key-vault.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftoowoxx%2Ffuse-azure-key-vault?ref=badge_large)
