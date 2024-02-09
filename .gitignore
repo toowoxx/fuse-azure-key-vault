@@ -92,3 +92,7 @@ fabric.properties
 /tmp/**
 /fuse.azkv
 /dist
+
+/fuse.azkv
+/fuse-azure-key-vault
+
