@@ -5,7 +5,7 @@ Displays your azure key vault in a directory structure.
 ## Prerequisites
 
  - FUSE support on your distro and the necessary libs (should be by default on Linux).
- - Go 1.19+
+ - Go 1.21+
 
 ## Building
 
