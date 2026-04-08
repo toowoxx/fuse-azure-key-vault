@@ -346,6 +346,7 @@ func (entry *listingEntry) Find(name string, ctx context.Context) *listingEntry 
 	if entry.fetchTime == nil {
 		err := entry.retrieveDirectoryListing(ctx)
 		if err != nil {
+			log.Println("Error retrieving directory listing in Find for", entry.name, "inode", entry.inode, ":", err)
 			return nil
 		}
 	}

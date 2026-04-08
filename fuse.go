@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"syscall"
 
 	"bazil.org/fuse"
@@ -64,6 +65,7 @@ func (d Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	err := d.entry.retrieveDirectoryListing(ctx)
 	if err != nil {
+		log.Println("Error retrieving directory listing for", d.entry.name, "inode", d.entry.inode, ":", err)
 		return nil, err
 	}
 
