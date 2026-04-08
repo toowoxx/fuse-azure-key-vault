@@ -21,7 +21,7 @@ builds:
       - arm64
     binary: 'fuse.azkv'
 archives:
-  - format: tar
+  - formats: [tar]
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
